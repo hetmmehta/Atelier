@@ -1,0 +1,115 @@
+{
+  "name": "StyleProfile",
+  "type": "object",
+  "properties": {
+    "body_type": {
+      "type": "string",
+      "enum": [
+        "hourglass",
+        "pear",
+        "apple",
+        "rectangle",
+        "inverted_triangle",
+        "athletic"
+      ],
+      "description": "Body type"
+    },
+    "height_cm": {
+      "type": "number",
+      "description": "Height in centimeters"
+    },
+    "weight_kg": {
+      "type": "number",
+      "description": "Weight in kilograms"
+    },
+    "height": {
+      "type": "string",
+      "enum": [
+        "petite",
+        "average",
+        "tall"
+      ],
+      "description": "Height category"
+    },
+    "preferred_styles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Preferred fashion styles"
+    },
+    "color_preferences": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Preferred color palettes"
+    },
+    "avoid_colors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Colors to avoid"
+    },
+    "budget_range": {
+      "type": "string",
+      "enum": [
+        "budget",
+        "mid_range",
+        "premium",
+        "luxury"
+      ],
+      "description": "Budget preference"
+    },
+    "climate": {
+      "type": "string",
+      "enum": [
+        "tropical",
+        "temperate",
+        "cold",
+        "dry"
+      ],
+      "description": "Climate you live in"
+    },
+    "age_group": {
+      "type": "string",
+      "enum": [
+        "18-24",
+        "25-34",
+        "35-44",
+        "45-54",
+        "55+"
+      ],
+      "description": "Age group"
+    },
+    "gender_expression": {
+      "type": "string",
+      "enum": [
+        "feminine",
+        "masculine",
+        "androgynous",
+        "fluid"
+      ],
+      "description": "Gender expression preference"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "User photo for skin tone matching"
+    },
+    "skin_tone": {
+      "type": "string",
+      "description": "Detected skin tone description"
+    },
+    "favorite_brands": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Favorite clothing brands"
+    }
+  },
+  "required": [
+    "body_type"
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "name": "ClothingItem",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the clothing item"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "tops",
+        "bottoms",
+        "dresses",
+        "outerwear",
+        "shoes",
+        "accessories",
+        "bags",
+        "activewear"
+      ],
+      "description": "Category of the clothing item"
+    },
+    "color": {
+      "type": "string",
+      "description": "Primary color of the item"
+    },
+    "subcategory": {
+      "type": "string",
+      "description": "More specific type like t-shirt, blazer, jeans, etc."
+    },
+    "season": {
+      "type": "string",
+      "enum": [
+        "spring",
+        "summer",
+        "fall",
+        "winter",
+        "all_seasons"
+      ],
+      "description": "Best season for this item"
+    },
+    "formality": {
+      "type": "string",
+      "enum": [
+        "casual",
+        "smart_casual",
+        "business_casual",
+        "formal",
+        "black_tie"
+      ],
+      "description": "Formality level"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "URL of the uploaded clothing image"
+    },
+    "brand": {
+      "type": "string",
+      "description": "Brand of the clothing item"
+    },
+    "size": {
+      "type": "string",
+      "description": "Size of the item (XS, S, M, L, XL, or numeric)"
+    },
+    "fit_notes": {
+      "type": "string",
+      "description": "How the item fits (runs small, true to size, etc.)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Any additional notes about the item"
+    }
+  },
+  "required": [
+    "name",
+    "category",
+    "image_url"
+  ]
+}

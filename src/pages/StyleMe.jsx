@@ -7,6 +7,7 @@ import OccasionSelector from "@/components/styleme/OccasionSelector";
 import StylePreferences from "@/components/styleme/StylePreferences";
 import OutfitResult from "@/components/styleme/OutfitResult";
 import { Skeleton } from "@/components/ui/skeleton";
+import { buildStyleMePrompt, STYLE_ME_SCHEMA } from "@/lib/prompts";
 
 export default function StyleMe() {
   const [step, setStep] = useState(1);
@@ -30,73 +31,9 @@ export default function StyleMe() {
 
   const generateOutfits = async () => {
     setGenerating(true);
-    const wardrobeSummary = items.map((i) => ({
-      id: i.id,
-      name: i.name,
-      category: i.category,
-      color: i.color,
-      subcategory: i.subcategory,
-      season: i.season,
-      formality: i.formality,
-      brand: i.brand,
-      size: i.size,
-      fit_notes: i.fit_notes,
-    }));
-
-    const prompt = `You are an expert fashion stylist. Create 2 complete, realistic, wearable outfit suggestions from this wardrobe.
-
-WARDROBE:
-${JSON.stringify(wardrobeSummary, null, 2)}
-
-OCCASION: ${occasion}
-MOOD/VIBE: ${preferences.mood || "not specified"}
-WEATHER: ${preferences.weather || "not specified"}
-COMFORT PRIORITY: ${preferences.comfort || "balanced"}
-EXTRA NOTES: ${preferences.extra_notes || "none"}
-
-STYLE PROFILE:
-- Body Type: ${profile.body_type || "not specified"}
-- Height: ${profile.height_cm ? profile.height_cm + "cm" : profile.height || "not specified"}
-- Weight: ${profile.weight_kg ? profile.weight_kg + "kg" : "not specified"}
-- Skin Tone: ${profile.skin_tone || "not specified"}
-- Preferred Styles: ${(profile.preferred_styles || []).join(", ") || "not specified"}
-- Color Preferences: ${(profile.color_preferences || []).join(", ") || "not specified"}
-- Gender Expression: ${profile.gender_expression || "not specified"}
-- Age Group: ${profile.age_group || "not specified"}
-- Climate: ${profile.climate || "not specified"}
-
-STRICT OUTFIT RULES — you MUST follow these:
-1. NEVER combine a dress or skirt with jeans or pants. A dress/skirt IS the bottom — do not add another bottom.
-2. Every outfit must have at most ONE bottom piece (pants OR skirt OR dress, never two).
-3. Every outfit must have at most ONE top piece (unless layering is intentional and realistic, e.g. a shirt under a blazer).
-4. Shoes and accessories are optional additions, not required.
-5. Only use items whose IDs exist in the wardrobe list above. Do not invent or guess IDs.
-6. If the wardrobe has limited items, create the best possible outfit from what exists — do not force combinations that don't make sense.
-7. Consider color harmony — complementary or matching colors only.
-8. Consider the body type and choose flattering silhouettes.
-
-For layering_order: describe the order to PUT ON each item (e.g., "1. Put on the white tee first, 2. Layer the blazer over it, 3. Step into the jeans, 4. Put on the white sneakers").`;
-
     const result = await base44.integrations.Core.InvokeLLM({
-      prompt,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          outfits: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                outfit_name: { type: "string" },
-                item_ids: { type: "array", items: { type: "string" } },
-                styling_advice: { type: "string" },
-                layering_order: { type: "array", items: { type: "string" } },
-                styling_tips: { type: "array", items: { type: "string" } },
-              },
-            },
-          },
-        },
-      },
+      prompt: buildStyleMePrompt({ items, profile, occasion, preferences }),
+      response_json_schema: STYLE_ME_SCHEMA,
     });
 
     setOutfits(result.outfits || []);

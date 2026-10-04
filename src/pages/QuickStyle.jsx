@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, Loader2, Zap } from "lucide-react";
 import OccasionSelector from "@/components/styleme/OccasionSelector";
 import { Skeleton } from "@/components/ui/skeleton";
+import { buildQuickPickPrompt, QUICK_PICK_SCHEMA } from "@/lib/prompts";
 
 export default function QuickStyle() {
   const [occasion, setOccasion] = useState("");
@@ -30,40 +31,9 @@ export default function QuickStyle() {
     setGenerating(true);
     setResult(null);
 
-    const wardrobeSummary = items.map((i) => ({
-      id: i.id,
-      name: i.name,
-      category: i.category,
-      color: i.color,
-      subcategory: i.subcategory,
-      brand: i.brand,
-      size: i.size,
-      formality: i.formality,
-    }));
-
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a quick fashion stylist. Given the user's wardrobe, pick ONE best outfit for the occasion. Be decisive and concise.
-
-WARDROBE: ${JSON.stringify(wardrobeSummary)}
-OCCASION: ${occasion}
-BODY TYPE: ${profile.body_type || "not specified"}
-HEIGHT: ${profile.height_cm ? profile.height_cm + "cm" : "average"}
-WEIGHT: ${profile.weight_kg ? profile.weight_kg + "kg" : "not specified"}
-SKIN TONE: ${profile.skin_tone || "not specified"}
-PREFERRED STYLES: ${(profile.preferred_styles || []).join(", ") || "any"}
-COLOR PREFERENCES: ${(profile.color_preferences || []).join(", ") || "any"}
-
-Pick the BEST single outfit. Use only items from the wardrobe by their IDs. Give a short, punchy recommendation and ONE key styling suggestion.`,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          outfit_name: { type: "string" },
-          item_ids: { type: "array", items: { type: "string" } },
-          why_it_works: { type: "string" },
-          key_tip: { type: "string" },
-          confidence: { type: "string", enum: ["Perfect Match", "Great Choice", "Good Option"] },
-        },
-      },
+      prompt: buildQuickPickPrompt({ items, profile, occasion }),
+      response_json_schema: QUICK_PICK_SCHEMA,
     });
 
     setResult(res);

@@ -47,12 +47,12 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
-import Wardrobe from './pages/Wardrobe.js';
-import StyleMe from './pages/StyleMe.js';
-import SavedOutfits from './pages/SavedOutfits.js';
-import StyleProfilePage from './pages/StyleProfilePage.js';
-import QuickStyle from './pages/QuickStyle.js';
-import ShopDiscover from './pages/ShopDiscover.js';
+import Wardrobe from './pages/Wardrobe';
+import StyleMe from './pages/StyleMe';
+import SavedOutfits from './pages/SavedOutfits';
+import StyleProfilePage from './pages/StyleProfilePage';
+import QuickStyle from './pages/QuickStyle';
+import ShopDiscover from './pages/ShopDiscover';
 import __Layout from './Layout.jsx';
 
 

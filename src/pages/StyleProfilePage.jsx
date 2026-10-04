@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Save, Loader2, X, Plus, User, Camera, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/use-toast";
 
 const bodyTypes = [
   { value: "hourglass", label: "Hourglass", desc: "Balanced bust & hips, defined waist" },
@@ -75,24 +75,34 @@ export default function StyleProfilePage() {
     setPhotoPreview(URL.createObjectURL(file));
     // Auto analyze skin tone
     setAnalyzingSkin(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: "Analyze the skin tone of the person in this photo. Provide a clear, descriptive skin tone (e.g. 'warm golden brown', 'fair with pink undertones', 'deep ebony', 'medium olive', 'cool porcelain'). Also suggest which colors and tones would complement this skin tone best for clothing choices.",
-      file_urls: [file_url],
-      response_json_schema: {
-        type: "object",
-        properties: {
-          skin_tone: { type: "string" },
-          complementary_colors: { type: "array", items: { type: "string" } },
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setForm((prev) => ({ ...prev, photo_url: file_url }));
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: "Analyze the skin tone of the person in this photo. Provide a clear, descriptive skin tone (e.g. 'warm golden brown', 'fair with pink undertones', 'deep ebony', 'medium olive', 'cool porcelain'). Also suggest which colors and tones would complement this skin tone best for clothing choices.",
+        file_urls: [file_url],
+        response_json_schema: {
+          type: "object",
+          properties: {
+            skin_tone: { type: "string" },
+            complementary_colors: { type: "array", items: { type: "string" } },
+          },
         },
-      },
-    });
-    setForm((prev) => ({
-      ...prev,
-      photo_url: file_url,
-      skin_tone: result.skin_tone || prev.skin_tone,
-    }));
-    setAnalyzingSkin(false);
+      });
+      setForm((prev) => ({
+        ...prev,
+        skin_tone: result.skin_tone || prev.skin_tone,
+      }));
+    } catch (error) {
+      console.error("Skin tone analysis failed", error);
+      toast({
+        variant: "destructive",
+        title: "Couldn't analyze your photo",
+        description: "Please try another photo, or try again in a moment.",
+      });
+    } finally {
+      setAnalyzingSkin(false);
+    }
   };
 
   const saveMutation = useMutation({
@@ -102,7 +112,10 @@ export default function StyleProfilePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["styleProfile"] });
-      toast.success("Style profile saved!");
+      toast({ title: "Style profile saved!" });
+    },
+    onError: () => {
+      toast({ variant: "destructive", title: "Couldn't save your profile", description: "Please try again." });
     },
   });
 

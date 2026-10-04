@@ -79,10 +79,12 @@ export default function OutfitResult({ outfit, allItems, profile, onSave, onRege
         existing_image_urls: referenceImageUrls,
       });
       setModelImageUrl(result.url);
-    } catch (e) {
+    } catch (error) {
+      console.error("Model image generation failed", error);
       setModelError("Couldn't generate model image. Try regenerating the outfit.");
+    } finally {
+      setGeneratingModel(false);
     }
-    setGeneratingModel(false);
   };
 
   return (
@@ -165,7 +167,7 @@ export default function OutfitResult({ outfit, allItems, profile, onSave, onRege
         </div>
 
         {/* Model preview */}
-        {(generatingModel || modelImageUrl) && (
+        {(generatingModel || modelImageUrl || modelError) && (
           <div className="border-t pt-5">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, Loader2, Sparkles } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 const categories = [
   { value: "tops", label: "Tops" },
@@ -56,6 +57,7 @@ export default function AddClothingDialog({ open, onOpenChange, onAdd }) {
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [uploadedUrl, setUploadedUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [autoDetecting, setAutoDetecting] = useState(false);
 
@@ -64,52 +66,78 @@ export default function AddClothingDialog({ open, onOpenChange, onAdd }) {
     if (file) {
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
+      setUploadedUrl(null);
     }
+  };
+
+  // Upload the selected photo at most once; auto-detect and submit share the URL.
+  const ensureUploaded = async () => {
+    if (uploadedUrl) return uploadedUrl;
+    const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
+    setUploadedUrl(file_url);
+    return file_url;
   };
 
   const handleAutoDetect = async () => {
     if (!imageFile) return;
     setAutoDetecting(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: "Analyze this clothing item image. Identify: the name/type of the item, its category (tops, bottoms, dresses, outerwear, shoes, accessories, bags, activewear), its primary color, a subcategory (like t-shirt, blazer, jeans, sneakers), the best season to wear it, its formality level (casual, smart_casual, business_casual, formal, black_tie), and the brand if visible on the item/tag.",
-      file_urls: [file_url],
-      response_json_schema: {
-        type: "object",
-        properties: {
-          name: { type: "string" },
-          category: { type: "string", enum: ["tops", "bottoms", "dresses", "outerwear", "shoes", "accessories", "bags", "activewear"] },
-          color: { type: "string" },
-          subcategory: { type: "string" },
-          season: { type: "string", enum: ["spring", "summer", "fall", "winter", "all_seasons"] },
-          formality: { type: "string", enum: ["casual", "smart_casual", "business_casual", "formal", "black_tie"] },
-          brand: { type: "string" },
+    try {
+      const file_url = await ensureUploaded();
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: "Analyze this clothing item image. Identify: the name/type of the item, its category (tops, bottoms, dresses, outerwear, shoes, accessories, bags, activewear), its primary color, a subcategory (like t-shirt, blazer, jeans, sneakers), the best season to wear it, its formality level (casual, smart_casual, business_casual, formal, black_tie), and the brand if visible on the item/tag.",
+        file_urls: [file_url],
+        response_json_schema: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            category: { type: "string", enum: ["tops", "bottoms", "dresses", "outerwear", "shoes", "accessories", "bags", "activewear"] },
+            color: { type: "string" },
+            subcategory: { type: "string" },
+            season: { type: "string", enum: ["spring", "summer", "fall", "winter", "all_seasons"] },
+            formality: { type: "string", enum: ["casual", "smart_casual", "business_casual", "formal", "black_tie"] },
+            brand: { type: "string" },
+          },
         },
-      },
-    });
-    setForm((prev) => ({
-      ...prev,
-      name: result.name || prev.name,
-      category: result.category || prev.category,
-      color: result.color || prev.color,
-      subcategory: result.subcategory || prev.subcategory,
-      season: result.season || prev.season,
-      formality: result.formality || prev.formality,
-      brand: result.brand || prev.brand,
-    }));
-    setAutoDetecting(false);
+      });
+      setForm((prev) => ({
+        ...prev,
+        name: result.name || prev.name,
+        category: result.category || prev.category,
+        color: result.color || prev.color,
+        subcategory: result.subcategory || prev.subcategory,
+        season: result.season || prev.season,
+        formality: result.formality || prev.formality,
+        brand: result.brand || prev.brand,
+      }));
+    } catch (error) {
+      console.error("Auto-detect failed", error);
+      toast({
+        variant: "destructive",
+        title: "Auto-detect failed",
+        description: "We couldn't analyze this photo. You can still fill in the details yourself.",
+      });
+    } finally {
+      setAutoDetecting(false);
+    }
   };
 
   const handleSubmit = async () => {
     if (!imageFile || !form.name || !form.category) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
-    await onAdd({ ...form, image_url: file_url });
-    setForm({ name: "", category: "", color: "", subcategory: "", season: "", formality: "", brand: "", size: "", fit_notes: "", notes: "" });
-    setImageFile(null);
-    setImagePreview(null);
-    setUploading(false);
-    onOpenChange(false);
+    try {
+      const file_url = await ensureUploaded();
+      await onAdd({ ...form, image_url: file_url });
+      setForm({ name: "", category: "", color: "", subcategory: "", season: "", formality: "", brand: "", size: "", fit_notes: "", notes: "" });
+      setImageFile(null);
+      setImagePreview(null);
+      setUploadedUrl(null);
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Adding clothing item failed", error);
+      toast({ variant: "destructive", title: "Couldn't add item", description: "Please try again." });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (

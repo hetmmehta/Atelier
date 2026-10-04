@@ -8,6 +8,8 @@ import { Sparkles, Loader2, Zap } from "lucide-react";
 import OccasionSelector from "@/components/styleme/OccasionSelector";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildQuickPickPrompt, QUICK_PICK_SCHEMA } from "@/lib/prompts";
+import { validateOutfitItems } from "@/lib/outfits";
+import { toast } from "@/components/ui/use-toast";
 
 export default function QuickStyle() {
   const [occasion, setOccasion] = useState("");
@@ -31,17 +33,37 @@ export default function QuickStyle() {
     setGenerating(true);
     setResult(null);
 
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: buildQuickPickPrompt({ items, profile, occasion }),
-      response_json_schema: QUICK_PICK_SCHEMA,
-    });
+    try {
+      const res = await base44.integrations.Core.InvokeLLM({
+        prompt: buildQuickPickPrompt({ items, profile, occasion }),
+        response_json_schema: QUICK_PICK_SCHEMA,
+      });
 
-    setResult(res);
-    setGenerating(false);
+      const { outfit } = validateOutfitItems(res, items);
+      if (outfit.item_ids.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "No outfit could be built",
+          description: "The stylist didn't pick any items from your wardrobe. Give it another try.",
+        });
+        return;
+      }
+
+      setResult(outfit);
+    } catch (error) {
+      console.error("Quick pick failed", error);
+      toast({
+        variant: "destructive",
+        title: "Couldn't pick an outfit",
+        description: "Something went wrong talking to the stylist. Please try again.",
+      });
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const outfitItems = result
-    ? (result.item_ids || []).map((id) => items.find((i) => i.id === id)).filter(Boolean)
+    ? result.item_ids.map((id) => items.find((i) => i.id === id)).filter(Boolean)
     : [];
 
   if (isLoading) {

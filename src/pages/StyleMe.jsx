@@ -8,6 +8,8 @@ import StylePreferences from "@/components/styleme/StylePreferences";
 import OutfitResult from "@/components/styleme/OutfitResult";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildStyleMePrompt, STYLE_ME_SCHEMA } from "@/lib/prompts";
+import { validateOutfits } from "@/lib/outfits";
+import { toast } from "@/components/ui/use-toast";
 
 export default function StyleMe() {
   const [step, setStep] = useState(1);
@@ -31,24 +33,50 @@ export default function StyleMe() {
 
   const generateOutfits = async () => {
     setGenerating(true);
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: buildStyleMePrompt({ items, profile, occasion, preferences }),
-      response_json_schema: STYLE_ME_SCHEMA,
-    });
+    try {
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: buildStyleMePrompt({ items, profile, occasion, preferences }),
+        response_json_schema: STYLE_ME_SCHEMA,
+      });
 
-    setOutfits(result.outfits || []);
-    setGenerating(false);
-    setStep(3);
+      const validOutfits = validateOutfits(result?.outfits, items);
+      if (validOutfits.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "No outfit could be built",
+          description: "The stylist didn't return any items from your wardrobe. Try again or tweak your preferences.",
+        });
+        return;
+      }
+
+      setOutfits(validOutfits);
+      setStep(3);
+    } catch (error) {
+      console.error("Outfit generation failed", error);
+      toast({
+        variant: "destructive",
+        title: "Couldn't generate outfits",
+        description: "Something went wrong talking to the stylist. Please try again.",
+      });
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleSaveOutfit = async (outfit) => {
-    await base44.entities.SavedOutfit.create({
-      name: outfit.outfit_name,
-      occasion,
-      clothing_item_ids: outfit.item_ids,
-      styling_notes: outfit.styling_advice + "\n\nLayering:\n" + (outfit.layering_order || []).join("\n") + "\n\nTips:\n" + (outfit.styling_tips || []).join("\n"),
-    });
-    queryClient.invalidateQueries({ queryKey: ["savedOutfits"] });
+    try {
+      await base44.entities.SavedOutfit.create({
+        name: outfit.outfit_name,
+        occasion,
+        clothing_item_ids: outfit.item_ids,
+        styling_notes: outfit.styling_advice + "\n\nLayering:\n" + (outfit.layering_order || []).join("\n") + "\n\nTips:\n" + (outfit.styling_tips || []).join("\n"),
+      });
+      queryClient.invalidateQueries({ queryKey: ["savedOutfits"] });
+      toast({ title: "Outfit saved" });
+    } catch (error) {
+      console.error("Saving outfit failed", error);
+      toast({ variant: "destructive", title: "Couldn't save outfit", description: "Please try again." });
+    }
   };
 
   if (isLoading) {

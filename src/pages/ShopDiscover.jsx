@@ -4,13 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ShoppingBag, Loader2, ExternalLink, Sparkles, Tag, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/use-toast";
+import { buildShoppingPrompt, prepareRecommendations, formatPrice, parsePrice, SHOPPING_SCHEMA } from "@/lib/shopping";
 
 const BUDGET_LABELS = {
   budget: "Under $50",
@@ -38,56 +39,27 @@ export default function ShopDiscover() {
     setGenerating(true);
     setResults(null);
 
-    const budget = customBudget || BUDGET_LABELS[profile.budget_range] || "any budget";
-    const brandList = brands.length > 0 ? brands.join(", ") : "popular fashion brands";
+    const budgetLabel = customBudget || BUDGET_LABELS[profile.budget_range] || "";
 
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a personal shopping assistant. Based on the user's style profile, find real, current outfit recommendations and shopping links.
+    try {
+      const res = await base44.integrations.Core.InvokeLLM({
+        prompt: buildShoppingPrompt({ profile, brands, budgetLabel, saleOnly }),
+        add_context_from_internet: true,
+        response_json_schema: SHOPPING_SCHEMA,
+      });
 
-USER PROFILE:
-- Favorite Brands: ${brandList}
-- Budget: ${budget}
-- Style Preferences: ${(profile.preferred_styles || []).join(", ") || "classic, modern"}
-- Color Preferences: ${(profile.color_preferences || []).join(", ") || "neutrals"}
-- Skin Tone: ${profile.skin_tone || "not specified"}
-- Body Type: ${profile.body_type || "not specified"}
-- Gender Expression: ${profile.gender_expression || "feminine"}
-- Sale/Deals Only: ${saleOnly ? "YES - only include items on sale or with discount" : "no preference"}
-
-Generate 6 specific outfit or clothing item recommendations from these brands. For each:
-1. Give the item name, brand, approximate price within budget, and a direct shopping URL (use real brand websites like zara.com, hm.com, etc.)
-2. Explain why it suits their style profile and skin tone
-3. Note if it's on sale or a good deal
-
-Make URLs realistic and plausible (e.g., https://www.zara.com/us/en/search?searchTerm=blazer). Focus on what's currently trending at these brands.`,
-      add_context_from_internet: true,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          recommendations: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                item_name: { type: "string" },
-                brand: { type: "string" },
-                price: { type: "string" },
-                original_price: { type: "string" },
-                is_sale: { type: "boolean" },
-                url: { type: "string" },
-                why_for_you: { type: "string" },
-                category: { type: "string" },
-                color: { type: "string" },
-              },
-            },
-          },
-          trend_note: { type: "string" },
-        },
-      },
-    });
-
-    setResults(res);
-    setGenerating(false);
+      const { items, excludedCount } = prepareRecommendations(res?.recommendations, budgetLabel);
+      setResults({ recommendations: items, trend_note: res?.trend_note, excludedCount });
+    } catch (error) {
+      console.error("Shopping recommendations failed", error);
+      toast({
+        variant: "destructive",
+        title: "Couldn't load recommendations",
+        description: "Something went wrong finding pieces for you. Please try again.",
+      });
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const toggleBrand = (brand) => {
@@ -209,8 +181,14 @@ Make URLs realistic and plausible (e.g., https://www.zara.com/us/en/search?searc
             </Button>
           </div>
 
+          {results.recommendations.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Nothing matched your budget this time. Try a different budget or hit Refresh.
+            </p>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {(results.recommendations || []).map((item, i) => (
+            {results.recommendations.map((item, i) => (
               <Card key={i} className="p-5 flex flex-col gap-3 hover:shadow-md transition-shadow group">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
@@ -224,12 +202,15 @@ Make URLs realistic and plausible (e.g., https://www.zara.com/us/en/search?searc
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm">{item.price}</span>
-                  {item.original_price && item.original_price !== item.price && (
-                    <span className="text-xs text-muted-foreground line-through">{item.original_price}</span>
-                  )}
-                </div>
+                {formatPrice(item.price_usd) && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">~{formatPrice(item.price_usd)}</span>
+                    {item.is_sale && parsePrice(item.original_price_usd) > parsePrice(item.price_usd) && (
+                      <span className="text-xs text-muted-foreground line-through">{formatPrice(item.original_price_usd)}</span>
+                    )}
+                    <span className="text-[10px] text-muted-foreground">est.</span>
+                  </div>
+                )}
 
                 <div className="flex gap-1.5 flex-wrap">
                   {item.category && <Badge variant="secondary" className="text-[10px]">{item.category}</Badge>}
@@ -239,19 +220,24 @@ Make URLs realistic and plausible (e.g., https://www.zara.com/us/en/search?searc
                 <p className="text-xs text-muted-foreground leading-relaxed flex-1">{item.why_for_you}</p>
 
                 <a
-                  href={item.url}
+                  href={item.search_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-auto"
                 >
                   <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                     <ExternalLink className="w-3.5 h-3.5" />
-                    Shop Now at {item.brand}
+                    Search for this item
                   </Button>
                 </a>
               </Card>
             ))}
           </div>
+
+          <p className="text-xs text-muted-foreground">
+            Prices are AI estimates and may not match the store. Links open a Google Shopping search for the item.
+            {results.excludedCount > 0 && ` ${results.excludedCount} suggestion${results.excludedCount === 1 ? " was" : "s were"} outside your budget and hidden.`}
+          </p>
         </div>
       )}
     </div>
